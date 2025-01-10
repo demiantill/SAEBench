@@ -475,12 +475,12 @@ def gen_probe_stats(
 
     def validator_fn(x: torch.Tensor) -> torch.Tensor:
         logits = probe(x.clone().detach().to(device))
-        return (logits > threshold).float().cpu()
+        return (logits > threshold).float().cpu().numpy()
 
     results: list[ProbeStats] = []
 
     val_preds = validator_fn(X_val)
-    y_val_cpu = y_val.cpu()
+    y_val_cpu = y_val.cpu().numpy()
 
     for i, letter in enumerate(LETTERS):
         letter_preds = (val_preds[:, i]).cpu().numpy()
