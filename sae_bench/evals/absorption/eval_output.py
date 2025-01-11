@@ -1,3 +1,4 @@
+from pydantic.dataclasses import dataclass
 from pydantic import ConfigDict, Field, field_validator
 from sae_bench.evals.absorption.eval_config import AbsorptionEvalConfig
 from sae_bench.evals.base_eval_output import (
