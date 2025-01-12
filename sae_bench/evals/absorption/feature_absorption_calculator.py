@@ -73,37 +73,6 @@ class FeatureAbsorptionCalculator:
     # the probe projection of the top projecting feature must contribute at least this much to the total probe projection to count as absorption
     probe_projection_proportion_threshold: float = 0.4
 
-    @torch.inference_mode()
-    def _filter_prompts(
-        self,
-        prompts: list[SpellingPrompt],
-        sae: SAE,
-        main_feature_ids: list[int],
-    ) -> list[SpellingPrompt]:
-        """
-        Filter out any prompts where the main features are already active.
-        NOTE: All prompts must have the same token length
-        """
-        self._validate_prompts_are_same_length(prompts)
-        results: list[SpellingPrompt] = []
-        for batch in batchify(prompts, batch_size=self.batch_size):
-            sae_in = self.model.run_with_cache(
-                [p.base for p in batch],
-                stop_at_layer=sae.cfg.hook_layer + 1,
-                names_filter=[sae.cfg.hook_name],
-            )[1][sae.cfg.hook_name]
-            sae_acts = sae.encode(sae_in)
-            split_feats_active = (
-                sae_acts[:, self.word_token_pos, main_feature_ids]
-                .sum(dim=-1)
-                .float()
-                .tolist()
-            )
-            for prompt, res in zip(batch, split_feats_active):
-                if res < EPS:
-                    results.append(prompt)
-        return results
-
     def _build_prompts(self, words: list[str]) -> list[SpellingPrompt]:
         return [
             create_icl_prompt(
@@ -152,7 +121,6 @@ class FeatureAbsorptionCalculator:
         probe_direction: torch.Tensor,
         main_feature_ids: list[int],
         layer: int,
-        filter_prompts: bool = False,
         show_progress: bool = True,
     ) -> AbsorptionResults:
         """
@@ -164,8 +132,6 @@ class FeatureAbsorptionCalculator:
         probe_direction = probe_direction / probe_direction.norm()
         prompts = self._build_prompts(words)
         self._validate_prompts_are_same_length(prompts)
-        if filter_prompts:
-            prompts = self._filter_prompts(prompts, sae, main_feature_ids)
         results: list[WordAbsorptionResult] = []
         cos_sims = (
             torch.nn.functional.cosine_similarity(
